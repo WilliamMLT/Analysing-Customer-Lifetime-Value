@@ -1,0 +1,130 @@
+```{r include=F}
+library(tidyverse)
+```
+
+Introducing an Online Community at KyngaCell
+
+In early 2022, a few months into your new job at the mobile gaming powerhouse KyngaCell, your Chief Analytics Officer (CAO), Ms. Vital Analytixe, approaches you with a question concerning her.
+
+A few months prior to your joining the firm in mid-2021, the gaming team for their latest game, Nicht-Soporific, introduced a new online community feature in the game. The online community provided users multiple ways to connect and interact within the game – both during and outside of gameplay. The gaming team believes this new feature improved user revenue and retention within the game. Under most scenarios, the firm would follow the team’s belief as gospel and move on.
+
+However, last year, the firm hired a new Chief Financial Officer (CFO), Ms. Shawme DeMani. Ms. DeMani would like the team to back up their beliefs with numbers. Being diligent in her reporting, the CAO also wants to ensure that the team puts their best foot forward.
+To help address this issue, Ms. Analytixe, approaches you, a freshly minted UC Davis MSBA with 3 questions:
+
+
+
+```{r}
+#rm(list=ls())
+#setwd('~/uc_davis/BAX_401/Group Projects/Assignment3')
+
+df <- inner_join(readxl::read_xlsx('Assignment 3 HW3_Data.xlsx', sheet = 'Data 1'),
+                 readxl::read_xlsx('Assignment 3 HW3_Data.xlsx', sheet = 'Data 3'),
+                 by = c('Customer ID', 'Joined?', 'Month Before', 'Month After'))
+df <- df %>% rename(avg_spend = `Average Spend Last 3 months of Life with the firm`,
+                    churn = `Churned at 3 months`,
+                    age = `Customer Age with Firm at time of launching the online community`)
+```
+
+
+# (1)
+Has the online community increased user revenue? (2 points)
+
+```{r}
+# model1 <- lm(df$`Month After` ~ df$`Month Before` + df$`Joined?`)
+# summary(model1)
+
+df$revenue <- df$`Month After` - df$`Month Before`
+model1 <- lm(df$revenue ~ df$`Joined?`)
+summary(model1)
+
+
+```
+Yes
+
+
+# (2) 
+Has the online community led to increased retention? (2 points)
+
+```{r}
+model_churn <- glm(df$churn ~ df$`Joined?`, family = binomial(link='logit'))
+summary(model_churn)
+```
+
+# (3) 
+Has the online community led to an increase in CLV? (Assume a margin of 50% of customer spend) (2 points)
+
+CLV session 6
+logistic regression sample rcode session 6
+
+
+```{r}
+p <- 1-predict.glm(model_churn, newdata = df, type = 'response')
+df$churn_prob <- predict.glm(model_churn, newdata = df, type = 'response')
+clv <- df$avg_spend * .5 * (1 / ( 1 + 0.06 - p))
+df$clv <- clv
+
+
+for (n in 1:199) {
+  time_period <- 1/df$churn_prob[n]
+  clv <- 0
+ for (t in 0:round(time_period)) {
+    clv <- clv + (df$avg_spend * .5 * ((p^t) / ((1 + 0.06)^t)))
+ }
+  df$clv2 <- clv
+}
+```
+
+```{r}
+model_clv <- lm(df$clv2 ~ df$`Joined?`)
+summary(model_clv)
+```
+
+```{r}
+df %>% filter(`Joined?`==1) %>% select(clv2) %>% unlist %>% mean
+```
+
+
+
+```{r}
+
+
+library('caret')
+confusionMatrix(table(1*(df$churn_prob>0.5),1*(df$churn==1)))
+```
+
+
+# CLV 
+
+```{r}
+incr <- 1
+
+
+d <- df[df$churn==0,]
+d$avg_spend <- d$avg_spend*incr 
+g <- 0.08 # discount factor
+p <- 1-predict.glm(model_churn, newdata = d, type = 'response')
+clv <- d$avg_spend * (p / (1 + g - p))
+(mean(clv, na.rm=T)) 
+
+```
+
+
+
+# (4)
+As a first step, the game team provides you data on the individuals who play the game. They also provide you information on those who chose to participate in the community and those who didn’t. In addition, the data also notes how much each of them spent in the game one month before and one month after the online community was introduced. This provides you with a short term metric for increased sales that can be directly attributed to only those who joined the community. This information is stored in the Data 1 worksheet.
+
+Because you also want to determine long term effects that include retention and CLV, you obtain data on 90-day churn (i.e., did the player churn within 90 days after the online community was introduced), the customer age with the firm at the time of joining the community in months, and average spend within the game for these 90 days. This information is stored in the Data 2 worksheet.
+
+Armed with this data and your knowledge you begin your quest to answer the questions. You decide that you will not only answer these 
+questions, but you will also provide information on the (a) magnitude of change in user revenue, (b) retention and CLV due to the introduction of the online community, in other words, you will quantify the effect of introducing the online community in multiple ways, and will also discuss potential limitations of the analysis. (2 points)
+
+
+# (5)
+
+Finally, you also notice that the gaming team has included an additional variable in the dataset. The variable ‘Campaign/Organic’ records how the user joined the game. A value of ‘1’ indicates that the user joined the game due to a campaign run by the firm. A value of ‘0’ indicates that the user joined organically (to the best of their knowledge). This information is stored in the Data 3 worksheet. 
+
+Your industrious self decides to expand on the questions asked of you using this new variable, and provide more value to the team. What metrics can you create using this new variable? How would they be useful to the team, CAO or CFO? What new insights might you generate that provide more clarity to this crucial marketing function? (2 points)
+
+Please follow the report writing guidelines as provided to you. Do remember to first address the key questions asked and then expand on these questions with your additional analysis (if any).
+
+
